@@ -362,10 +362,10 @@
       <h2>Protected Dashboard</h2>
       <p>Please enter the password to view mandatory training logs.</p>
       
-      <form onsubmit="checkPassword(event)">
-        <input type="password" id="passwordInput" class="login-input" placeholder="Enter password..." required autofocus />
-        <button type="submit" class="login-btn">Unlock Dashboard</button>
-      </form>
+      <div>
+        <input type="password" id="passwordInput" class="login-input" placeholder="Enter password..." autofocus onkeydown="if(event.key === 'Enter') checkPassword()" />
+        <button type="button" class="login-btn" onclick="checkPassword()">Unlock Dashboard</button>
+      </div>
       
       <div class="error-msg" id="errorMessage">
         <i class="fa-solid fa-circle-exclamation"></i> Incorrect password. Try again.
@@ -461,7 +461,7 @@
   </div>
 
   <script>
-    // Config: Required Password
+    // Password set by user
     const REQUIRED_PASS = "53943jonel";
 
     // Replace this link with your published CSV link from Google Sheets
@@ -469,9 +469,8 @@
 
     let rawData = [];
 
-    // Password verification logic
-    function checkPassword(e) {
-      e.preventDefault();
+    // Corrected Password check logic
+    function checkPassword() {
       const input = document.getElementById("passwordInput").value;
       const errorMsg = document.getElementById("errorMessage");
 
@@ -490,7 +489,7 @@
       location.reload();
     }
 
-    // Check if session is already unlocked
+    // Auto-login check if already authenticated during this tab session
     window.addEventListener("DOMContentLoaded", () => {
       if (sessionStorage.getItem("authenticated") === "true") {
         document.getElementById("loginOverlay").style.display = "none";
