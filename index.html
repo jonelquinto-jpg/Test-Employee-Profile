@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Employee Training Profile Dashboard</title>
+  <title>Employee Mandatory Training Profile Dashboard</title>
   
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- PapaParse for parsing CSV data -->
+  <!-- PapaParse for parsing Google Sheet CSV -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <style>
@@ -147,7 +147,6 @@
       gap: 24px;
     }
 
-    /* Filter Bar */
     .filter-card {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -193,9 +192,10 @@
       cursor: pointer;
     }
 
-    select.dropdown:focus {
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    select.dropdown:disabled {
+      background-color: #f1f5f9;
+      cursor: not-allowed;
+      color: var(--text-muted);
     }
 
     .controls-right {
@@ -220,6 +220,17 @@
     .refresh-btn:hover, .logout-btn:hover {
       background-color: #f1f5f9;
       color: var(--text-main);
+    }
+
+    .role-indicator {
+      font-size: 0.75rem;
+      background-color: #eff6ff;
+      color: var(--primary-color);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-left: 8px;
     }
 
     /* Stats Grid */
@@ -255,7 +266,6 @@
       margin-top: 6px;
     }
 
-    /* Compliance Progress Bar */
     .progress-container {
       margin-top: 10px;
       background-color: #e2e8f0;
@@ -359,14 +369,14 @@
 </head>
 <body>
 
-  <!-- Password Protected Login Screen -->
+  <!-- Lock Screen Overlay -->
   <div class="login-overlay" id="loginOverlay">
     <div class="login-card">
       <div class="login-icon">
         <i class="fa-solid fa-lock"></i>
       </div>
       <h2>Protected Dashboard</h2>
-      <p>Please enter the password to view mandatory training logs.</p>
+      <p>Enter Master Password or Project-Specific Access Password.</p>
       
       <div>
         <input type="password" id="passwordInput" class="login-input" placeholder="Enter password..." autofocus onkeydown="if(event.key === 'Enter') checkPassword()" />
@@ -374,12 +384,12 @@
       </div>
       
       <div class="error-msg" id="errorMessage">
-        <i class="fa-solid fa-circle-exclamation"></i> Incorrect password. Try again.
+        <i class="fa-solid fa-circle-exclamation"></i> Invalid password.
       </div>
     </div>
   </div>
 
-  <!-- Dashboard Container -->
+  <!-- Main Dashboard Container -->
   <div class="dashboard-container">
     
     <!-- Filter Header -->
@@ -400,8 +410,9 @@
           <i class="fa-solid fa-folder-kanban" style="color: var(--primary-color);"></i>
           <label for="projectFilter" class="filter-label">Project:</label>
           <select id="projectFilter" class="dropdown" onchange="filterData()">
-            <option value="ALL">All Projects</option>
+            <option value="ALL">All Projects (Master View)</option>
           </select>
+          <span class="role-indicator" id="roleBadge">MASTER ACCESS</span>
         </div>
 
       </div>
@@ -416,19 +427,17 @@
       </div>
     </div>
 
-    <!-- Stats Cards -->
+    <!-- Stats Grid -->
     <div class="stats-grid">
-      <!-- Total Duration Hours Card -->
       <div class="stat-card">
         <div class="stat-header">
           <span>Total Training Duration</span>
           <i class="fa-solid fa-clock"></i>
         </div>
         <div class="stat-value" id="totalDuration">0 hrs</div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Sum of all training hours</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Sum of training hours</p>
       </div>
 
-      <!-- Compliance Rate Card -->
       <div class="stat-card">
         <div class="stat-header">
           <span>Compliance Rate</span>
@@ -440,7 +449,6 @@
         </div>
       </div>
 
-      <!-- Trained Personnel Card -->
       <div class="stat-card">
         <div class="stat-header">
           <span>Trained Personnel</span>
@@ -450,7 +458,6 @@
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Total attendees</p>
       </div>
 
-      <!-- Active Topics Card -->
       <div class="stat-card">
         <div class="stat-header">
           <span>Topics Covered</span>
@@ -494,34 +501,61 @@
   </div>
 
   <script>
-    const REQUIRED_PASS = "53943jonel";
+    // ---------------- ACCESS CONTROL CONFIGURATION ----------------
+    const MASTER_PASS = "53943jonel";
 
-    // Replace this URL with your published Google Sheet CSV link
+    // Project-specific passwords mapped to exact project names in Google Sheet
+    const PROJECT_PASSWORDS = {
+      "ksp2026": "323300 KSP CP6-Common Indirect Costs",
+      "ompp2026": "323524 OMPP2- SA4"
+    };
+
+    // Replace with your published Google Sheet CSV link
     const GOOGLE_SHEET_CSV_URL = "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE";
 
     let rawData = [];
+    let userRole = "NONE"; // MASTER or PROJECT_SPECIFIC
+    let assignedProject = "ALL";
 
     function checkPassword() {
-      const input = document.getElementById("passwordInput").value;
+      const input = document.getElementById("passwordInput").value.trim();
       const errorMsg = document.getElementById("errorMessage");
 
-      if (input === REQUIRED_PASS) {
-        sessionStorage.setItem("authenticated", "true");
-        document.getElementById("loginOverlay").style.display = "none";
-        fetchSheetData();
+      if (input === MASTER_PASS) {
+        userRole = "MASTER";
+        assignedProject = "ALL";
+        sessionStorage.setItem("userRole", "MASTER");
+        sessionStorage.setItem("assignedProject", "ALL");
+        unlockDashboard();
+      } else if (PROJECT_PASSWORDS[input]) {
+        userRole = "PROJECT_SPECIFIC";
+        assignedProject = PROJECT_PASSWORDS[input];
+        sessionStorage.setItem("userRole", "PROJECT_SPECIFIC");
+        sessionStorage.setItem("assignedProject", assignedProject);
+        unlockDashboard();
       } else {
         errorMsg.style.display = "block";
         document.getElementById("passwordInput").value = "";
       }
     }
 
+    function unlockDashboard() {
+      document.getElementById("loginOverlay").style.display = "none";
+      fetchSheetData();
+    }
+
     function logout() {
-      sessionStorage.removeItem("authenticated");
+      sessionStorage.clear();
       location.reload();
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-      if (sessionStorage.getItem("authenticated") === "true") {
+      const savedRole = sessionStorage.getItem("userRole");
+      const savedProject = sessionStorage.getItem("assignedProject");
+
+      if (savedRole) {
+        userRole = savedRole;
+        assignedProject = savedProject;
         document.getElementById("loginOverlay").style.display = "none";
         fetchSheetData();
       }
@@ -553,6 +587,7 @@
               link: row['Source File Link'] || '#'
             }));
 
+            setupRoleUI();
             populateFilters();
             filterData();
           }
@@ -562,22 +597,42 @@
       }
     }
 
+    function setupRoleUI() {
+      const projDropdown = document.getElementById("projectFilter");
+      const roleBadge = document.getElementById("roleBadge");
+
+      if (userRole === "PROJECT_SPECIFIC") {
+        projDropdown.disabled = true;
+        roleBadge.innerText = "RESTRICTED ACCESS";
+        roleBadge.style.backgroundColor = "#fef3c7";
+        roleBadge.style.color = "#d97706";
+      } else {
+        projDropdown.disabled = false;
+        roleBadge.innerText = "MASTER ACCESS";
+        roleBadge.style.backgroundColor = "#eff6ff";
+        roleBadge.style.color = "var(--primary-color)";
+      }
+    }
+
     function populateFilters() {
       // 1. Populate Projects Dropdown
       const projectDropdown = document.getElementById("projectFilter");
-      const selectedProj = projectDropdown.value;
       const projects = [...new Set(rawData.map(item => item.project).filter(Boolean))];
       
-      projectDropdown.innerHTML = `<option value="ALL">All Projects</option>`;
+      projectDropdown.innerHTML = userRole === "MASTER" ? `<option value="ALL">All Projects (Master View)</option>` : "";
+      
       projects.forEach(project => {
-        const opt = document.createElement("option");
-        opt.value = project;
-        opt.textContent = project;
-        projectDropdown.appendChild(opt);
+        if (userRole === "MASTER" || project === assignedProject) {
+          const opt = document.createElement("option");
+          opt.value = project;
+          opt.textContent = project;
+          projectDropdown.appendChild(opt);
+        }
       });
-      if (projects.includes(selectedProj)) projectDropdown.value = selectedProj;
 
-      // 2. Populate Months Dropdown (Formats dates YYYY-MM into Month Names)
+      projectDropdown.value = assignedProject;
+
+      // 2. Populate Months Dropdown
       const monthDropdown = document.getElementById("monthFilter");
       const selectedMonth = monthDropdown.value;
       
@@ -605,7 +660,7 @@
       const selectedProject = document.getElementById("projectFilter").value;
       const selectedMonth = document.getElementById("monthFilter").value;
 
-      // Apply Month and Project Filters
+      // Filter dataset by access controls & selected month
       let filtered = rawData.filter(row => {
         let matchProject = (selectedProject === "ALL") || (row.project === selectedProject);
         let matchMonth = true;
@@ -620,11 +675,10 @@
         return matchProject && matchMonth;
       });
 
-      // 1. SUM ALL DURATION HOURS
+      // Recalculate Metrics
       const totalHours = filtered.reduce((sum, item) => sum + (parseFloat(item.duration) || 0), 0);
       document.getElementById("totalDuration").innerText = totalHours + " hrs";
 
-      // 2. COMPLIANCE RATE CALCULATION
       const targetPerProject = 10;
       let totalTarget = selectedProject === "ALL" 
         ? Math.max(1, [...new Set(rawData.map(r => r.project))].length * targetPerProject)
@@ -632,7 +686,6 @@
 
       let compliancePercentage = Math.min(100, Math.round((filtered.length / totalTarget) * 100));
 
-      // 3. UPDATE STATS CARDS
       document.getElementById("complianceRate").innerText = compliancePercentage + "%";
       document.getElementById("totalPersonnel").innerText = filtered.length;
 
@@ -643,12 +696,12 @@
       bar.style.width = compliancePercentage + "%";
       bar.style.backgroundColor = compliancePercentage < 70 ? "var(--warning)" : "var(--success)";
 
-      // 4. RENDER TABLE ROWS
+      // Render Table
       const tbody = document.getElementById("attendanceTableBody");
       tbody.innerHTML = "";
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px;">No training records match the selected filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px;">No training records match the selected criteria.</td></tr>`;
         return;
       }
 
@@ -685,6 +738,7 @@
         { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Samiullah", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
         { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "78842", name: "HUSSAIN ADNAN MOHAMMED ALMUSAWI", position: "SAFETY OFFICER", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" }
       ];
+      setupRoleUI();
       populateFilters();
       filterData();
     }
