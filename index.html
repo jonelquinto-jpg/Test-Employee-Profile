@@ -3,12 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Employee Mandatory Training Profile Dashboard</title>
+  <title>Live Employee Training Profile Dashboard</title>
   
+  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- PapaParse for parsing CSV data -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <style>
     :root {
@@ -23,6 +29,7 @@
       --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
       --success: #16a34a;
       --warning: #ca8a04;
+      --error-color: #ef4444;
     }
 
     * {
@@ -38,8 +45,100 @@
       display: flex;
       justify-content: center;
       padding: 30px 20px;
+      min-height: 100vh;
     }
 
+    /* ---------------- Password Lock Screen ---------------- */
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: var(--radius);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .login-icon {
+      width: 60px;
+      height: 60px;
+      background: #eff6ff;
+      color: var(--primary-color);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin: 0 auto 20px auto;
+    }
+
+    .login-card h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .login-card p {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-bottom: 24px;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+
+    .login-input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .login-btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .error-msg {
+      color: var(--error-color);
+      font-size: 0.85rem;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ---------------- Dashboard UI ---------------- */
     .dashboard-container {
       width: 100%;
       max-width: 1050px;
@@ -48,7 +147,7 @@
       gap: 24px;
     }
 
-    /* Top Controls / Filter Bar */
+    /* Filter Bar */
     .filter-card {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -85,7 +184,7 @@
       font-weight: 500;
       outline: none;
       cursor: pointer;
-      min-width: 320px;
+      min-width: 300px;
     }
 
     select.project-dropdown:focus {
@@ -93,7 +192,31 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
-    /* Stats Overview Header Cards */
+    .controls-right {
+      display: flex;
+      gap: 10px;
+    }
+
+    .refresh-btn, .logout-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+    }
+
+    .refresh-btn:hover, .logout-btn:hover {
+      background-color: #f1f5f9;
+      color: var(--text-main);
+    }
+
+    /* Stats Cards */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -144,7 +267,7 @@
       border-radius: 8px;
     }
 
-    /* Main Content Profile Card */
+    /* Table Container */
     .content-card {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -165,7 +288,6 @@
       font-weight: 700;
     }
 
-    /* Table Styling */
     .table-wrapper {
       overflow-x: auto;
     }
@@ -221,30 +343,64 @@
     .link-btn:hover {
       text-decoration: underline;
     }
+
+    .loading-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
 
+  <!-- Password Protected Login Screen Overlay -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <div class="login-icon">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2>Protected Dashboard</h2>
+      <p>Please enter the password to view mandatory training logs.</p>
+      
+      <form onsubmit="checkPassword(event)">
+        <input type="password" id="passwordInput" class="login-input" placeholder="Enter password..." required autofocus />
+        <button type="submit" class="login-btn">Unlock Dashboard</button>
+      </form>
+      
+      <div class="error-msg" id="errorMessage">
+        <i class="fa-solid fa-circle-exclamation"></i> Incorrect password. Try again.
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Dashboard View -->
   <div class="dashboard-container">
     
-    <!-- Top Filter Controls -->
+    <!-- Filter Header -->
     <div class="filter-card">
       <div class="filter-group">
         <i class="fa-solid fa-folder-kanban" style="color: var(--primary-color);"></i>
-        <label for="projectFilter" class="filter-label">Select Project Name:</label>
+        <label for="projectFilter" class="filter-label">Project Name:</label>
         <select id="projectFilter" class="project-dropdown" onchange="filterData()">
           <option value="ALL">All Projects</option>
-          <option value="323300 KSP CP6-Common Indirect Costs">323300 KSP CP6-Common Indirect Costs</option>
-          <option value="323524 OMPP2- SA4">323524 OMPP2- SA4</option>
         </select>
+      </div>
+
+      <div class="controls-right">
+        <button class="refresh-btn" onclick="fetchSheetData()">
+          <i class="fa-solid fa-rotate-right"></i> Sync Data
+        </button>
+        <button class="logout-btn" onclick="logout()">
+          <i class="fa-solid fa-right-from-bracket"></i> Lock
+        </button>
       </div>
     </div>
 
-    <!-- Summary / Compliance Statistics -->
+    <!-- Statistics Cards -->
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-header">
-          <span>Mandatory Training Compliance</span>
+          <span>Training Compliance Rate</span>
           <i class="fa-solid fa-chart-line"></i>
         </div>
         <div class="stat-value" id="complianceRate">0%</div>
@@ -255,27 +411,27 @@
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>Total Trained Personnel</span>
+          <span>Trained Personnel</span>
           <i class="fa-solid fa-users"></i>
         </div>
         <div class="stat-value" id="totalPersonnel">0</div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Attended mandatory sessions</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Attended sessions</p>
       </div>
 
       <div class="stat-card">
         <div class="stat-header">
-          <span>Active Topics Covered</span>
+          <span>Topics Covered</span>
           <i class="fa-solid fa-book-open"></i>
         </div>
         <div class="stat-value" id="totalTopics">0</div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Safety & Operational modules</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Unique modules</p>
       </div>
     </div>
 
-    <!-- Main Attendance Table -->
+    <!-- Data Table -->
     <div class="content-card">
       <div class="card-title-bar">
-        <h2 class="card-title">Training Attendance Log</h2>
+        <h2 class="card-title">Attendance Log (Google Sheet Live Feed)</h2>
       </div>
 
       <div class="table-wrapper">
@@ -284,15 +440,19 @@
             <tr>
               <th>Date</th>
               <th>Employee Name</th>
-              <th>ID</th>
+              <th>Emp No</th>
               <th>Position</th>
               <th>Topic</th>
               <th>Duration</th>
-              <th>Verification</th>
+              <th>Source Document</th>
             </tr>
           </thead>
           <tbody id="attendanceTableBody">
-            <!-- Rendered by JavaScript -->
+            <tr>
+              <td colspan="7" class="loading-state">
+                <i class="fa-solid fa-spinner fa-spin"></i> Loading Google Sheet data...
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -301,179 +461,133 @@
   </div>
 
   <script>
-    // Embedded dataset extracted from your master spreadsheet
-    const attendanceData = [
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "Others",
-        name: "SALEH MOHAMMED",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "Others",
-        name: "ATHAR HUSSAIN",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "140680",
-        name: "MOZAMMEL HAQUE",
-        position: "SKID LOADER OPERATOR",
-        nationality: "BD",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "140667",
-        name: "AMRIT CHANDRA DAS",
-        position: "SKID LOADER OPERATOR",
-        nationality: "BD",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "Others",
-        name: "SAMIM AKHTAR",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "Others",
-        name: "MUHAMMAD IQBAL",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-15",
-        project: "323300 KSP CP6-Common Indirect Costs",
-        topic: "Crane, Forklift, and Mobile Equipment Operator",
-        empNo: "Others",
-        name: "MUHAMMAD KHALIL",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7"
-      },
-      {
-        date: "2026-09-30",
-        project: "323524 OMPP2- SA4",
-        topic: "Hazard Communication",
-        empNo: "Others",
-        name: "Said muhammad",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ"
-      },
-      {
-        date: "2026-09-30",
-        project: "323524 OMPP2- SA4",
-        topic: "Hazard Communication",
-        empNo: "Others",
-        name: "Tanweer Naseem",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ"
-      },
-      {
-        date: "2026-09-30",
-        project: "323524 OMPP2- SA4",
-        topic: "Hazard Communication",
-        empNo: "Others",
-        name: "Samiullah",
-        position: "Others",
-        nationality: "Others",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ"
-      },
-      {
-        date: "2026-09-30",
-        project: "323524 OMPP2- SA4",
-        topic: "Hazard Communication",
-        empNo: "78842",
-        name: "HUSSAIN ADNAN MOHAMMED ALMUSAWI",
-        position: "SAFETY OFFICER",
-        nationality: "SA",
-        duration: 1,
-        link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ"
-      }
-    ];
+    // Config: Required Password
+    const REQUIRED_PASS = "53943jonel";
 
-    // Project Target Baseline Requirements (For calculate compliance rate)
-    const projectTargets = {
-      "323300 KSP CP6-Common Indirect Costs": 8, // Expecting 8 trained
-      "323524 OMPP2- SA4": 5                     // Expecting 5 trained
-    };
+    // Replace this link with your published CSV link from Google Sheets
+    const GOOGLE_SHEET_CSV_URL = "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE";
+
+    let rawData = [];
+
+    // Password verification logic
+    function checkPassword(e) {
+      e.preventDefault();
+      const input = document.getElementById("passwordInput").value;
+      const errorMsg = document.getElementById("errorMessage");
+
+      if (input === REQUIRED_PASS) {
+        sessionStorage.setItem("authenticated", "true");
+        document.getElementById("loginOverlay").style.display = "none";
+        fetchSheetData();
+      } else {
+        errorMsg.style.display = "block";
+        document.getElementById("passwordInput").value = "";
+      }
+    }
+
+    function logout() {
+      sessionStorage.removeItem("authenticated");
+      location.reload();
+    }
+
+    // Check if session is already unlocked
+    window.addEventListener("DOMContentLoaded", () => {
+      if (sessionStorage.getItem("authenticated") === "true") {
+        document.getElementById("loginOverlay").style.display = "none";
+        fetchSheetData();
+      }
+    });
+
+    async function fetchSheetData() {
+      if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE")) {
+        loadSampleFallbackData();
+        return;
+      }
+
+      try {
+        const response = await fetch(GOOGLE_SHEET_CSV_URL);
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            rawData = results.data.map(row => ({
+              date: row['Date'] || '',
+              project: row['Project Name'] || '',
+              topic: row['Topic'] || '',
+              empNo: row['Employee No.'] || '',
+              name: row['Name'] || '',
+              position: row['Position'] || '',
+              nationality: row['Nationality'] || '',
+              duration: row['Duration'] || '1',
+              link: row['Source File Link'] || '#'
+            }));
+
+            populateProjectDropdown();
+            filterData();
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching Google Sheet CSV:", error);
+      }
+    }
+
+    function populateProjectDropdown() {
+      const dropdown = document.getElementById("projectFilter");
+      const selectedValue = dropdown.value;
+      
+      const projects = [...new Set(rawData.map(item => item.project).filter(Boolean))];
+      
+      dropdown.innerHTML = `<option value="ALL">All Projects</option>`;
+      projects.forEach(project => {
+        const opt = document.createElement("option");
+        opt.value = project;
+        opt.textContent = project;
+        dropdown.appendChild(opt);
+      });
+
+      if (projects.includes(selectedValue)) {
+        dropdown.value = selectedValue;
+      }
+    }
 
     function filterData() {
       const selectedProject = document.getElementById("projectFilter").value;
       
-      let filtered = attendanceData;
+      let filtered = rawData;
       if (selectedProject !== "ALL") {
-        filtered = attendanceData.filter(row => row.project === selectedProject);
+        filtered = rawData.filter(row => row.project === selectedProject);
       }
 
-      // Calculate Metrics & Compliance Rate
-      let compliancePercentage = 0;
-      if (selectedProject === "ALL") {
-        const totalTarget = Object.values(projectTargets).reduce((a, b) => a + b, 0);
-        compliancePercentage = Math.round((filtered.length / totalTarget) * 100);
-      } else {
-        const target = projectTargets[selectedProject] || filtered.length;
-        compliancePercentage = Math.min(100, Math.round((filtered.length / target) * 100));
-      }
+      const targetPerProject = 10; 
+      let totalTarget = selectedProject === "ALL" 
+        ? Math.max(1, [...new Set(rawData.map(r => r.project))].length * targetPerProject)
+        : targetPerProject;
 
-      // Update Header Stats Card
+      let compliancePercentage = Math.min(100, Math.round((filtered.length / totalTarget) * 100));
+
       document.getElementById("complianceRate").innerText = compliancePercentage + "%";
       document.getElementById("totalPersonnel").innerText = filtered.length;
 
-      const topics = new Set(filtered.map(item => item.topic));
+      const topics = new Set(filtered.map(item => item.topic).filter(Boolean));
       document.getElementById("totalTopics").innerText = topics.size;
 
       const bar = document.getElementById("complianceBar");
       bar.style.width = compliancePercentage + "%";
-      
-      if (compliancePercentage < 75) {
-        bar.style.backgroundColor = "var(--warning)";
-      } else {
-        bar.style.backgroundColor = "var(--success)";
-      }
+      bar.style.backgroundColor = compliancePercentage < 70 ? "var(--warning)" : "var(--success)";
 
-      // Populate Table Body
       const tbody = document.getElementById("attendanceTableBody");
       tbody.innerHTML = "";
 
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px;">No training records found.</td></tr>`;
+        return;
+      }
+
       filtered.forEach(row => {
         const tr = document.createElement("tr");
-        
-        const posClass = row.position === "Others" ? "badge-others" : "badge-position";
+        const posClass = (row.position === "Others" || !row.position) ? "badge-others" : "badge-position";
 
         tr.innerHTML = `
           <td>${row.date}</td>
@@ -482,14 +596,31 @@
           <td><span class="badge ${posClass}">${row.position}</span></td>
           <td>${row.topic}</td>
           <td>${row.duration} hr</td>
-          <td><a href="${row.link}" target="_blank" class="link-btn"><i class="fa-solid fa-file-pdf"></i> View Source</a></td>
+          <td>
+            ${row.link && row.link !== '#' ? `<a href="${row.link}" target="_blank" class="link-btn"><i class="fa-solid fa-file-pdf"></i> View Source</a>` : 'N/A'}
+          </td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // Initial load
-    filterData();
+    function loadSampleFallbackData() {
+      rawData = [
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "SALEH MOHAMMED", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "ATHAR HUSSAIN", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "140680", name: "MOZAMMEL HAQUE", position: "SKID LOADER OPERATOR", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "140667", name: "AMRIT CHANDRA DAS", position: "SKID LOADER OPERATOR", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "SAMIM AKHTAR", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "MUHAMMAD IQBAL", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "MUHAMMAD KHALIL", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Said muhammad", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
+        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Tanweer Naseem", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
+        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Samiullah", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
+        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "78842", name: "HUSSAIN ADNAN MOHAMMED ALMUSAWI", position: "SAFETY OFFICER", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" }
+      ];
+      populateProjectDropdown();
+      filterData();
+    }
   </script>
 </body>
 </html>
