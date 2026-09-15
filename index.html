@@ -233,10 +233,10 @@
       margin-left: 8px;
     }
 
-    /* Stats Grid */
+    /* Stats Grid - Adjusted to 3 Cards */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 16px;
     }
 
@@ -457,15 +457,6 @@
         <div class="stat-value" id="totalPersonnel">0</div>
         <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Total attendees</p>
       </div>
-
-      <div class="stat-card">
-        <div class="stat-header">
-          <span>Topics Covered</span>
-          <i class="fa-solid fa-book-open"></i>
-        </div>
-        <div class="stat-value" id="totalTopics">0</div>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">Unique modules</p>
-      </div>
     </div>
 
     <!-- Data Table -->
@@ -482,14 +473,13 @@
               <th>Employee Name</th>
               <th>Emp No</th>
               <th>Position</th>
-              <th>Topic</th>
               <th>Duration</th>
               <th>Source Document</th>
             </tr>
           </thead>
           <tbody id="attendanceTableBody">
             <tr>
-              <td colspan="7" class="loading-state">
+              <td colspan="6" class="loading-state">
                 <i class="fa-solid fa-spinner fa-spin"></i> Loading data...
               </td>
             </tr>
@@ -501,20 +491,19 @@
   </div>
 
   <script>
-    // ---------------- ACCESS CONTROL CONFIGURATION ----------------
+    // ACCESS CONTROL CONFIGURATION
     const MASTER_PASS = "53943jonel";
 
-    // Project-specific passwords mapped to exact project names in Google Sheet
     const PROJECT_PASSWORDS = {
       "ksp2026": "323300 KSP CP6-Common Indirect Costs",
-      "ompp2026": "323524 OMPP2- SA4"
+      "ompp2026": "323524 OMPP2- SA4",
+      "central2026": "322150 CENTRAL ARABIA DEVELOPMENT-NUA"
     };
 
-    // Replace with your published Google Sheet CSV link
     const GOOGLE_SHEET_CSV_URL = "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE";
 
     let rawData = [];
-    let userRole = "NONE"; // MASTER or PROJECT_SPECIFIC
+    let userRole = "NONE";
     let assignedProject = "ALL";
 
     function checkPassword() {
@@ -578,7 +567,6 @@
             rawData = results.data.map(row => ({
               date: row['Date'] || '',
               project: row['Project Name'] || '',
-              topic: row['Topic'] || '',
               empNo: row['Employee No.'] || '',
               name: row['Name'] || '',
               position: row['Position'] || '',
@@ -660,7 +648,6 @@
       const selectedProject = document.getElementById("projectFilter").value;
       const selectedMonth = document.getElementById("monthFilter").value;
 
-      // Filter dataset by access controls & selected month
       let filtered = rawData.filter(row => {
         let matchProject = (selectedProject === "ALL") || (row.project === selectedProject);
         let matchMonth = true;
@@ -675,10 +662,11 @@
         return matchProject && matchMonth;
       });
 
-      // Recalculate Metrics
+      // Total Duration Sum
       const totalHours = filtered.reduce((sum, item) => sum + (parseFloat(item.duration) || 0), 0);
       document.getElementById("totalDuration").innerText = totalHours + " hrs";
 
+      // Compliance Rate
       const targetPerProject = 10;
       let totalTarget = selectedProject === "ALL" 
         ? Math.max(1, [...new Set(rawData.map(r => r.project))].length * targetPerProject)
@@ -689,19 +677,16 @@
       document.getElementById("complianceRate").innerText = compliancePercentage + "%";
       document.getElementById("totalPersonnel").innerText = filtered.length;
 
-      const topics = new Set(filtered.map(item => item.topic).filter(Boolean));
-      document.getElementById("totalTopics").innerText = topics.size;
-
       const bar = document.getElementById("complianceBar");
       bar.style.width = compliancePercentage + "%";
       bar.style.backgroundColor = compliancePercentage < 70 ? "var(--warning)" : "var(--success)";
 
-      // Render Table
+      // Render Table Rows
       const tbody = document.getElementById("attendanceTableBody");
       tbody.innerHTML = "";
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px;">No training records match the selected criteria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">No training records match the selected criteria.</td></tr>`;
         return;
       }
 
@@ -714,7 +699,6 @@
           <td style="font-weight: 600;">${row.name}</td>
           <td>${row.empNo}</td>
           <td><span class="badge ${posClass}">${row.position}</span></td>
-          <td>${row.topic}</td>
           <td>${row.duration} hr</td>
           <td>
             ${row.link && row.link !== '#' ? `<a href="${row.link}" target="_blank" class="link-btn"><i class="fa-solid fa-file-pdf"></i> View Source</a>` : 'N/A'}
@@ -726,17 +710,13 @@
 
     function loadSampleFallbackData() {
       rawData = [
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "SALEH MOHAMMED", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "ATHAR HUSSAIN", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "140680", name: "MOZAMMEL HAQUE", position: "SKID LOADER OPERATOR", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "140667", name: "AMRIT CHANDRA DAS", position: "SKID LOADER OPERATOR", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "SAMIM AKHTAR", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "MUHAMMAD IQBAL", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", topic: "Crane, Forklift, and Mobile Equipment Operator", empNo: "Others", name: "MUHAMMAD KHALIL", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
-        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Said muhammad", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
-        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Tanweer Naseem", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
-        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "Others", name: "Samiullah", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" },
-        { date: "2026-09-30", project: "323524 OMPP2- SA4", topic: "Hazard Communication", empNo: "78842", name: "HUSSAIN ADNAN MOHAMMED ALMUSAWI", position: "SAFETY OFFICER", duration: 1, link: "https://drive.google.com/open?id=1K9XZTRrqpZh-hokpv5pql4rlyXEitzZ" }
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", empNo: "Others", name: "SALEH MOHAMMED", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", empNo: "Others", name: "ATHAR HUSSAIN", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", empNo: "140680", name: "MOZAMMEL HAQUE", position: "SKID LOADER OPERATOR", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", empNo: "140667", name: "AMRIT CHANDRA DAS", position: "SKID LOADER OPERATOR", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-15", project: "323300 KSP CP6-Common Indirect Costs", empNo: "Others", name: "SAMIM AKHTAR", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1nwBvch5D0zHRbz-qNdja2DTd1sxi-6z7" },
+        { date: "2026-09-16", project: "322150 CENTRAL ARABIA DEVELOPMENT-NUA", empNo: "31780", name: "RAJKUMAR KUSHWAHA", position: "SUPERVISOR-ELECTRICAL", duration: 1, link: "https://drive.google.com/open?id=1_eEvWIyJASCdmqsJ5U4YjxpbT_Fc1d5U" },
+        { date: "2026-09-16", project: "322150 CENTRAL ARABIA DEVELOPMENT-NUA", empNo: "Others", name: "Environmental Awareness", position: "Others", duration: 1, link: "https://drive.google.com/open?id=1_eEvWIyJASCdmqsJ5U4YjxpbT_Fc1d5U" }
       ];
       setupRoleUI();
       populateFilters();
